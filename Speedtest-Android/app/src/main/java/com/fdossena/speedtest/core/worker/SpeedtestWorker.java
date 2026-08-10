@@ -21,7 +21,8 @@ public abstract class SpeedtestWorker extends Thread{
     private SpeedtestConfig config;
     private TelemetryConfig telemetryConfig;
     private boolean stopASAP=false;
-    private double dl=-1, ul=-1, ping=-1, jitter=-1;
+    private double dl=-1, ul=-1, ping=-1, jitter=-1, loss=-1;
+    private int pongsReceived=0;
     private String ipIsp="";
     private Logger log=new Logger();
 
@@ -53,12 +54,15 @@ public abstract class SpeedtestWorker extends Thread{
     }
 
     private boolean getIPCalled=false;
+    //kept so that abort() can cut the IP lookup short instead of waiting out its timeouts
+    private volatile Connection ipConnection=null;
     private void getIP(){
         if(getIPCalled) return; else getIPCalled=true;
         final long start=System.currentTimeMillis();
         Connection c = null;
         try {
             c = new Connection(backend.getServer(), config.getPing_connectTimeout(), config.getPing_soTimeout(), -1, -1);
+            ipConnection=c;
         } catch (Throwable t) {
             if (config.getErrorHandlingMode().equals(SpeedtestConfig.ONERROR_FAIL)){
                 abort();
@@ -209,6 +213,7 @@ public abstract class SpeedtestWorker extends Thread{
             @Override
             public boolean onPong(long ns) {
                 counter++;
+                pongsReceived++;
                 double ms = ns / 1000000.0;
                 if (ms < minPing) minPing = ms;
                 ping = minPing;
@@ -232,44 +237,93 @@ public abstract class SpeedtestWorker extends Thread{
         if(stopASAP) return;
         log.l("Ping: "+ ping+" "+jitter+ " (took "+(System.currentTimeMillis()-start)+"ms)");
         onPingJitterUpdate(ping,jitter,1);
+        //approximate packet loss from HTTP pings that never returned
+        int expected=config.getCount_ping();
+        if(expected>0){
+            loss=pongsReceived>=expected?0:100.0*(expected-pongsReceived)/expected;
+            onLossUpdate(loss);
+        }
     }
 
     private void sendTelemetry(){
         if(telemetryConfig.getTelemetryLevel().equals(TelemetryConfig.LEVEL_DISABLED)) return;
         if(stopASAP&&telemetryConfig.getTelemetryLevel().equals(TelemetryConfig.LEVEL_BASIC)) return;
+        //the tested server may run its own results backend (this is what the web client uses);
+        //try it first, then fall back to the centrally configured endpoint
+        String base=testServerTelemetryBase();
+        String localId=submitTelemetry(backend.getServer(),base.isEmpty()?"results/telemetry.php":base+"/results/telemetry.php");
+        if(localId!=null){
+            onTestIDReceived(localId,shareUrlTemplate(backend.getServer(),base.isEmpty()?"results/?id=%s":base+"/results/?id=%s"));
+            return;
+        }
+        String centralId=submitTelemetry(telemetryConfig.getServer(),telemetryConfig.getPath());
+        if(centralId!=null){
+            onTestIDReceived(centralId,shareUrlTemplate(telemetryConfig.getServer(),telemetryConfig.getShareURL()));
+        }
+    }
+
+    //endpoints usually live in <base>/backend/, the results backend in <base>/results/
+    private String testServerTelemetryBase(){
+        String pingURL=backend.getPingURL()==null?"":backend.getPingURL();
+        int slash=pingURL.lastIndexOf('/');
+        String dir=slash==-1?"":pingURL.substring(0,slash);
+        if(dir.endsWith("backend")) dir=dir.substring(0,dir.length()-"backend".length());
+        while(dir.startsWith("/")) dir=dir.substring(1);
+        while(dir.endsWith("/")) dir=dir.substring(0,dir.length()-1);
+        return dir;
+    }
+
+    private String submitTelemetry(String server, String path){
+        if(server==null||server.isEmpty()||path==null||path.isEmpty()) return null;
         try{
-            Connection c=new Connection(telemetryConfig.getServer(),-1,-1,-1,-1);
-            Telemetry t=new Telemetry(c,telemetryConfig.getPath(),telemetryConfig.getTelemetryLevel(),ipIsp,config.getTelemetry_extra(),dl==-1?"":String.format(Locale.ENGLISH,"%.2f",dl),ul==-1?"":String.format(Locale.ENGLISH,"%.2f",ul),ping==-1?"":String.format(Locale.ENGLISH,"%.2f",ping),jitter==-1?"":String.format(Locale.ENGLISH,"%.2f",jitter),log.getLog()) {
+            Connection c=new Connection(server,-1,-1,-1,-1);
+            final String[] result=new String[1];
+            Telemetry t=new Telemetry(c,path,telemetryConfig.getTelemetryLevel(),ipIsp,config.getTelemetry_extra(),dl==-1?"":String.format(Locale.ENGLISH,"%.2f",dl),ul==-1?"":String.format(Locale.ENGLISH,"%.2f",ul),ping==-1?"":String.format(Locale.ENGLISH,"%.2f",ping),jitter==-1?"":String.format(Locale.ENGLISH,"%.2f",jitter),log.getLog()) {
                 @Override
                 public void onDataReceived(String data) {
-                    if(data.startsWith("id")){
-                        onTestIDReceived(data.split(" ")[1]);
+                    if(data!=null&&data.startsWith("id")){
+                        String[] parts=data.split(" ");
+                        if(parts.length>1) result[0]=parts[1];
                     }
                 }
 
                 @Override
                 public void onError(String err) {
-                    System.err.println("Telemetry error: "+err);
+                    System.err.println("Telemetry error ("+server+"): "+err);
                 }
             };
             t.join();
+            return result[0];
         }catch (Throwable t){
-            System.err.println("Failed to send telemetry: "+t.toString());
-            t.printStackTrace(System.err);
+            System.err.println("Failed to send telemetry to "+server+": "+t);
+            return null;
         }
+    }
+
+    private String shareUrlTemplate(String serverBase, String sharePath){
+        if(serverBase==null||serverBase.isEmpty()||sharePath==null||sharePath.isEmpty()) return null;
+        String server=serverBase;
+        if(!server.endsWith("/")) server=server+"/";
+        String path=sharePath;
+        while(path.startsWith("/")) path=path.substring(1);
+        if(server.startsWith("//")) server="https:"+server;
+        return server+path;
     }
 
     public void abort(){
         if(stopASAP) return;
         log.l("Manually aborted");
         stopASAP=true;
+        Connection ic=ipConnection;
+        if(ic!=null){ try{ic.close();}catch(Throwable t){} }
     }
 
     public abstract void onDownloadUpdate(double dl, double progress);
     public abstract void onUploadUpdate(double ul, double progress);
     public abstract void onPingJitterUpdate(double ping, double jitter, double progress);
+    public abstract void onLossUpdate(double loss);
     public abstract void onIPInfoUpdate(String ipInfo);
-    public abstract void onTestIDReceived(String id);
+    public abstract void onTestIDReceived(String id, String shareURLTemplate);
     public abstract void onEnd();
 
     public abstract void onCriticalFailure(String err);

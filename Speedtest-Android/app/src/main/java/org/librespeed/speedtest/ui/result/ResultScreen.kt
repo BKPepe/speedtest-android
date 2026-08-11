@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Public
@@ -70,6 +71,7 @@ import org.librespeed.speedtest.data.AppPreferences
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.HistoryDatabase
 import org.librespeed.speedtest.data.HistoryEntry
+import org.librespeed.speedtest.data.TestStats
 import org.librespeed.speedtest.share.ShareResult
 import org.librespeed.speedtest.ui.components.Sparkline
 import org.librespeed.speedtest.ui.history.formatDate
@@ -250,6 +252,15 @@ fun ResultScreen(
                     if (totalMb > 0) {
                         RowDivider()
                         DetailRow(stringResource(R.string.detail_data), String.format(Locale.US, "~ %.0f MB", totalMb), Icons.Filled.DataUsage)
+                    }
+                    val loadedMax = maxOf(result.loadedDown, result.loadedUp)
+                    TestStats.bufferbloatGrade(result.ping, loadedMax)?.let { grade ->
+                        RowDivider()
+                        DetailRow(
+                            stringResource(R.string.detail_bufferbloat),
+                            String.format(Locale.US, "%s · +%.0f ms", grade, (loadedMax - result.ping).coerceAtLeast(0.0)),
+                            Icons.Filled.NetworkCheck
+                        )
                     }
                 }
             }

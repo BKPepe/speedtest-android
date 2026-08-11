@@ -49,7 +49,9 @@ private const val WEBSITE_URL = "https://librespeed.org"
 fun SettingsScreen(
     serverLabel: String?,
     serverPinned: Boolean,
-    onServersClick: () -> Unit
+    serverCount: Int,
+    onServersClick: () -> Unit,
+    onLicensesClick: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AppPreferences(context.applicationContext) }
@@ -58,12 +60,13 @@ fun SettingsScreen(
     val themeMode by prefs.themeMode.collectAsStateWithLifecycle(initialValue = "system")
     val useMBytes by prefs.useMBytes.collectAsStateWithLifecycle(initialValue = false)
     val telemetry by prefs.telemetryEnabled.collectAsStateWithLifecycle(initialValue = false)
-    val singleConnection by prefs.singleConnection.collectAsStateWithLifecycle(initialValue = false)
+    val testMode by prefs.testMode.collectAsStateWithLifecycle(initialValue = "standard")
 
     var unitsDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var testModeDialog by remember { mutableStateOf(false) }
     var whatIsSentDialog by remember { mutableStateOf(false) }
+    var reportDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
@@ -105,7 +108,13 @@ fun SettingsScreen(
             RowDivider()
             ValueRow(
                 title = stringResource(R.string.settings_test_mode),
-                value = stringResource(if (singleConnection) R.string.test_mode_single else R.string.test_mode_standard),
+                value = stringResource(
+                    when (testMode) {
+                        "single" -> R.string.test_mode_single
+                        "stability" -> R.string.test_mode_stability
+                        else -> R.string.test_mode_standard
+                    }
+                ),
                 onClick = { testModeDialog = true }
             )
         }
@@ -138,6 +147,14 @@ fun SettingsScreen(
                     .padding(top = 10.dp, bottom = 2.dp)
             )
         }
+        SectionTitle(stringResource(R.string.settings_section_diagnostics))
+        SettingsCard {
+            ValueRow(
+                title = stringResource(R.string.settings_report),
+                value = stringResource(R.string.settings_report_hint),
+                onClick = { reportDialog = true }
+            )
+        }
         SectionTitle(stringResource(R.string.settings_section_about))
         SettingsCard {
             Column(Modifier.padding(vertical = 10.dp)) {
@@ -153,7 +170,7 @@ fun SettingsScreen(
                 )
             }
             RowDivider()
-            NavRow(stringResource(R.string.settings_licenses)) { context.openUrl("$PROJECT_URL/blob/master/LICENSE") }
+            NavRow(stringResource(R.string.settings_licenses), onLicensesClick)
             RowDivider()
             NavRow(stringResource(R.string.settings_source)) { context.openUrl(PROJECT_URL) }
             RowDivider()
@@ -195,12 +212,48 @@ fun SettingsScreen(
         RadioDialog(
             title = stringResource(R.string.settings_test_mode),
             options = listOf(
-                stringResource(R.string.test_mode_standard) to !singleConnection,
-                stringResource(R.string.test_mode_single) to singleConnection
+                stringResource(R.string.test_mode_standard) to (testMode == "standard"),
+                stringResource(R.string.test_mode_single) to (testMode == "single"),
+                stringResource(R.string.test_mode_stability) to (testMode == "stability")
             ),
             hint = stringResource(R.string.test_mode_hint),
-            onSelect = { index -> scope.launch { prefs.setSingleConnection(index == 1) } },
+            onSelect = { index ->
+                scope.launch { prefs.setTestMode(listOf("standard", "single", "stability")[index]) }
+            },
             onDismiss = { testModeDialog = false }
+        )
+    }
+    if (reportDialog) {
+        val report = remember {
+            var last: org.librespeed.speedtest.data.HistoryEntry? = null
+            try {
+                last = org.librespeed.speedtest.data.HistoryDatabase(context.applicationContext).readAll().firstOrNull()
+            } catch (_: Exception) {
+            }
+            org.librespeed.speedtest.data.DiagnosticReport.build(
+                context, last,
+                telemetryEnabled = telemetry, testMode = testMode, serverCount = serverCount
+            )
+        }
+        AlertDialog(
+            onDismissRequest = { reportDialog = false },
+            title = { Text(stringResource(R.string.settings_report)) },
+            text = {
+                Text(
+                    text = report,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    org.librespeed.speedtest.share.ShareResult.copy(context, report)
+                    reportDialog = false
+                }) { Text(stringResource(R.string.share_copy)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { reportDialog = false }) { Text(stringResource(R.string.dialog_close)) }
+            }
         )
     }
     if (whatIsSentDialog) {

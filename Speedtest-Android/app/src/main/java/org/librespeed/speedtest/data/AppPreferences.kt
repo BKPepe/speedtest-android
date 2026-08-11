@@ -28,6 +28,7 @@ class AppPreferences(private val context: Context) {
         val USE_MBYTES = booleanPreferencesKey("use_mbytes")
         val TELEMETRY = booleanPreferencesKey("telemetry_enabled")
         val SINGLE_CONNECTION = booleanPreferencesKey("single_connection")
+        val TEST_MODE = stringPreferencesKey("test_mode")
         val GEO_CACHE = stringPreferencesKey("geo_cache")
     }
 
@@ -62,11 +63,14 @@ class AppPreferences(private val context: Context) {
     val telemetryEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.TELEMETRY] ?: false }
 
-    val singleConnection: Flow<Boolean> =
-        context.dataStore.data.map { it[Keys.SINGLE_CONNECTION] ?: false }
+    /** "standard", "single" or "stability"; migrates the old single-connection switch. */
+    val testMode: Flow<String> =
+        context.dataStore.data.map {
+            it[Keys.TEST_MODE] ?: if (it[Keys.SINGLE_CONNECTION] == true) "single" else "standard"
+        }
 
-    suspend fun setSingleConnection(value: Boolean) {
-        context.dataStore.edit { it[Keys.SINGLE_CONNECTION] = value }
+    suspend fun setTestMode(value: String) {
+        context.dataStore.edit { it[Keys.TEST_MODE] = value }
     }
 
     suspend fun setThemeMode(mode: String) {

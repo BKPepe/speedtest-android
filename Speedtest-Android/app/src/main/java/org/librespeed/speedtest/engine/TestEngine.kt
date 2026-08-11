@@ -13,6 +13,14 @@ import org.json.JSONObject
 import java.io.IOException
 import kotlin.coroutines.resume
 
+enum class TestMode(val key: String) {
+    STANDARD("standard"), SINGLE("single"), STABILITY("stability"), COMPARE("compare");
+
+    companion object {
+        fun fromKey(key: String?): TestMode = entries.find { it.key == key } ?: STANDARD
+    }
+}
+
 class TestEngine(private val context: Context) {
 
     private var speedtest: Speedtest? = null
@@ -57,8 +65,8 @@ class TestEngine(private val context: Context) {
     }
 
     /** Prepares a fresh test run against an already known server, without re-pinging everything. */
-    fun prepare(servers: List<TestPoint>, selected: TestPoint, telemetryEnabled: Boolean, singleConnection: Boolean = false) {
-        val st = newSpeedtest(telemetryEnabled, singleConnection)
+    fun prepare(servers: List<TestPoint>, selected: TestPoint, telemetryEnabled: Boolean, mode: TestMode = TestMode.STANDARD) {
+        val st = newSpeedtest(telemetryEnabled, mode)
         st.addTestPoints(servers.toTypedArray())
         st.setSelectedServer(selected)
         speedtest = st
@@ -72,12 +80,26 @@ class TestEngine(private val context: Context) {
         runCatching { speedtest?.abort() }
     }
 
-    private fun newSpeedtest(telemetryEnabled: Boolean, singleConnection: Boolean = false): Speedtest {
+    private fun newSpeedtest(telemetryEnabled: Boolean, mode: TestMode = TestMode.STANDARD): Speedtest {
         val st = Speedtest()
         val configJson = runCatching { JSONObject(readAsset("SpeedtestConfig.json") ?: "{}") }.getOrDefault(JSONObject())
-        if (singleConnection) {
-            configJson.put("dl_parallelStreams", 1)
-            configJson.put("ul_parallelStreams", 1)
+        when (mode) {
+            TestMode.SINGLE -> {
+                configJson.put("dl_parallelStreams", 1)
+                configJson.put("ul_parallelStreams", 1)
+            }
+            TestMode.STABILITY -> {
+                //a long sustained download shows how steady the line really is
+                configJson.put("test_order", "P_D")
+                configJson.put("time_dl_max", 60)
+                configJson.put("time_auto", false)
+            }
+            TestMode.COMPARE -> {
+                configJson.put("test_order", "P_D")
+                configJson.put("time_dl_max", 5)
+                configJson.put("time_auto", false)
+            }
+            TestMode.STANDARD -> Unit
         }
         runCatching { st.setSpeedtestConfig(SpeedtestConfig(configJson)) }
         val telemetryJson = if (telemetryEnabled) {

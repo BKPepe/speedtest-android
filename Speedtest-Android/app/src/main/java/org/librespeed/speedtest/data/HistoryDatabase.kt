@@ -21,10 +21,16 @@ data class HistoryEntry(
     val networkType: String? = null,
     val downloadSamples: List<Double> = emptyList(),
     val uploadSamples: List<Double> = emptyList(),
-    val durationMs: Long = 0
+    val durationMs: Long = 0,
+    val mode: String? = null,
+    val loadedDown: Double = -1.0,
+    val loadedUp: Double = -1.0,
+    val networkDetail: String? = null,
+    /** A telemetry POST was made for this run; [shareUrl] additionally confirms the server stored it. */
+    val telemetrySent: Boolean = false
 )
 
-class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db", null, 3) {
+class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -43,7 +49,12 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db"
                 "networkType TEXT," +
                 "dlSamples TEXT," +
                 "ulSamples TEXT," +
-                "duration INTEGER NOT NULL DEFAULT 0)"
+                "duration INTEGER NOT NULL DEFAULT 0," +
+                "mode TEXT," +
+                "loadedDown REAL NOT NULL DEFAULT -1," +
+                "loadedUp REAL NOT NULL DEFAULT -1," +
+                "networkDetail TEXT," +
+                "telemetrySent INTEGER NOT NULL DEFAULT 0)"
         )
     }
 
@@ -55,6 +66,15 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db"
         }
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE history ADD COLUMN duration INTEGER NOT NULL DEFAULT 0")
+        }
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE history ADD COLUMN mode TEXT")
+            db.execSQL("ALTER TABLE history ADD COLUMN loadedDown REAL NOT NULL DEFAULT -1")
+            db.execSQL("ALTER TABLE history ADD COLUMN loadedUp REAL NOT NULL DEFAULT -1")
+            db.execSQL("ALTER TABLE history ADD COLUMN networkDetail TEXT")
+        }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE history ADD COLUMN telemetrySent INTEGER NOT NULL DEFAULT 0")
         }
     }
 
@@ -75,6 +95,11 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db"
             put("dlSamples", entry.downloadSamples.toJson())
             put("ulSamples", entry.uploadSamples.toJson())
             put("duration", entry.durationMs)
+            put("mode", entry.mode)
+            put("loadedDown", entry.loadedDown)
+            put("loadedUp", entry.loadedUp)
+            put("networkDetail", entry.networkDetail)
+            put("telemetrySent", if (entry.telemetrySent) 1 else 0)
         }
     )
 
@@ -110,7 +135,12 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context, "history.db"
                         networkType = cursor.getString(cursor.getColumnIndexOrThrow("networkType")),
                         downloadSamples = cursor.getString(cursor.getColumnIndexOrThrow("dlSamples")).fromJson(),
                         uploadSamples = cursor.getString(cursor.getColumnIndexOrThrow("ulSamples")).fromJson(),
-                        durationMs = cursor.getLong(cursor.getColumnIndexOrThrow("duration"))
+                        durationMs = cursor.getLong(cursor.getColumnIndexOrThrow("duration")),
+                        mode = cursor.getString(cursor.getColumnIndexOrThrow("mode")),
+                        loadedDown = cursor.getDouble(cursor.getColumnIndexOrThrow("loadedDown")),
+                        loadedUp = cursor.getDouble(cursor.getColumnIndexOrThrow("loadedUp")),
+                        networkDetail = cursor.getString(cursor.getColumnIndexOrThrow("networkDetail")),
+                        telemetrySent = cursor.getInt(cursor.getColumnIndexOrThrow("telemetrySent")) != 0
                     )
                 )
             }

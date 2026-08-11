@@ -13,6 +13,12 @@ android {
         targetSdk = 36
         versionCode = 10
         versionName = "2.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    testOptions {
+        //the engine reads android.os.Build for its default User-Agent
+        unitTests.isReturnDefaultValues = true
     }
 
     signingConfigs {
@@ -63,6 +69,14 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.window)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)
+    testImplementation(libs.mockwebserver)
+    //real org.json for unit tests; the mockable android.jar only has stubs
+    testImplementation(libs.json)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }

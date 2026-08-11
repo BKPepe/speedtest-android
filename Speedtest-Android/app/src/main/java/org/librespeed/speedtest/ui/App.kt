@@ -50,7 +50,7 @@ enum class Destination(val route: String, @StringRes val label: Int, val icon: I
 
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
-fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact) {
+fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact, tabletop: Boolean = false) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -58,7 +58,8 @@ fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact) {
     val useRail = windowWidth != WindowWidthSizeClass.Compact
     val onResultScreen = currentRoute?.startsWith("result/") == true ||
         currentRoute?.startsWith("testdetails/") == true ||
-        currentRoute?.startsWith("share/") == true
+        currentRoute?.startsWith("share/") == true ||
+        currentRoute == "compare" || currentRoute == "licenses"
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -100,20 +101,34 @@ fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact) {
                         viewModel = speedtestViewModel,
                         onServersClick = { navController.navigateTo(Destination.SERVERS) },
                         onSettingsClick = { navController.navigateTo(Destination.SETTINGS) },
-                        onResult = { id -> navController.navigate("result/$id") }
+                        onResult = { id -> navController.navigate("result/$id") },
+                        tabletop = tabletop
                     )
                 }
                 composable(Destination.HISTORY.route) {
                     HistoryScreen(onOpen = { id -> navController.navigate("result/$id") })
                 }
-                composable(Destination.SERVERS.route) { ServersScreen(speedtestViewModel) }
+                composable(Destination.SERVERS.route) {
+                    ServersScreen(speedtestViewModel, onCompareClick = { navController.navigate("compare") })
+                }
+                composable("compare") {
+                    org.librespeed.speedtest.ui.servers.CompareScreen(
+                        speedtestViewModel = speedtestViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable(Destination.SETTINGS.route) {
                     val uiState by speedtestViewModel.state.collectAsStateWithLifecycle()
                     SettingsScreen(
                         serverLabel = uiState.selectedServer?.name,
                         serverPinned = uiState.pinnedServer,
-                        onServersClick = { navController.navigateTo(Destination.SERVERS) }
+                        serverCount = uiState.servers.size,
+                        onServersClick = { navController.navigateTo(Destination.SERVERS) },
+                        onLicensesClick = { navController.navigate("licenses") }
                     )
+                }
+                composable("licenses") {
+                    org.librespeed.speedtest.ui.settings.LicensesScreen(onBack = { navController.popBackStack() })
                 }
                 composable(
                     route = "result/{id}",

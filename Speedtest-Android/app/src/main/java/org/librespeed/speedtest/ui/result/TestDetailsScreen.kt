@@ -24,11 +24,18 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.SsidChart
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,6 +61,7 @@ import org.librespeed.speedtest.R
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.HistoryDatabase
 import org.librespeed.speedtest.data.HistoryEntry
+import org.librespeed.speedtest.data.TestStats
 import org.librespeed.speedtest.ui.history.formatDate
 import java.util.Locale
 
@@ -100,6 +108,20 @@ fun TestDetailsScreen(entryId: Long, onBack: () -> Unit) {
                     RowDivider()
                     DetailRow(stringResource(R.string.detail_duration), String.format(Locale.US, "%.1f s", result.durationMs / 1000.0), Icons.Filled.Schedule)
                 }
+                result.mode?.let {
+                    RowDivider()
+                    DetailRow(
+                        stringResource(R.string.detail_mode),
+                        stringResource(
+                            when (it) {
+                                "single" -> R.string.mode_single
+                                "stability" -> R.string.mode_stability
+                                else -> R.string.mode_standard
+                            }
+                        ),
+                        Icons.Filled.Tune
+                    )
+                }
             }
 
             Section(stringResource(R.string.section_server)) {
@@ -130,6 +152,36 @@ fun TestDetailsScreen(entryId: Long, onBack: () -> Unit) {
                     if (provider.isNotEmpty()) {
                         RowDivider()
                         DetailRow(stringResource(R.string.detail_isp), provider, Icons.Filled.Business)
+                    }
+                }
+                result.networkDetail?.let {
+                    RowDivider()
+                    DetailRow(stringResource(R.string.detail_operator), it, Icons.Filled.SignalCellularAlt)
+                }
+                if (result.loadedDown >= 0) {
+                    RowDivider()
+                    DetailRow(stringResource(R.string.detail_loaded_dl), String.format(Locale.US, "%.1f %s", result.loadedDown, stringResource(R.string.unit_ms)), Icons.Filled.NetworkCheck)
+                }
+                if (result.loadedUp >= 0) {
+                    RowDivider()
+                    DetailRow(stringResource(R.string.detail_loaded_ul), String.format(Locale.US, "%.1f %s", result.loadedUp, stringResource(R.string.unit_ms)), Icons.Filled.NetworkCheck)
+                }
+                TestStats.bufferbloatGrade(result.ping, maxOf(result.loadedDown, result.loadedUp))?.let { grade ->
+                    RowDivider()
+                    DetailRow(stringResource(R.string.detail_bufferbloat), grade, Icons.Filled.NetworkCheck)
+                }
+            }
+
+            if (result.mode == "stability") {
+                TestStats.stability(result.downloadSamples)?.let { s ->
+                    Section(stringResource(R.string.section_stability)) {
+                        DetailRow(stringResource(R.string.detail_min), String.format(Locale.US, "%.2f Mbps", s.min), Icons.Filled.TrendingDown)
+                        RowDivider()
+                        DetailRow(stringResource(R.string.detail_max), String.format(Locale.US, "%.2f Mbps", s.max), Icons.Filled.TrendingUp)
+                        RowDivider()
+                        DetailRow(stringResource(R.string.detail_avg), String.format(Locale.US, "%.2f Mbps", s.average), Icons.Filled.Timeline)
+                        RowDivider()
+                        DetailRow(stringResource(R.string.detail_variation), "± ${s.variationPct} %", Icons.Filled.SsidChart)
                     }
                 }
             }

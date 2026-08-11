@@ -144,5 +144,41 @@
     <string name="detail_data">Přenesená data</string>
     <string name="test_mode_standard">Standardní — více spojení</string>
     <string name="test_mode_single">Jedno spojení</string>
-    <string name="test_mode_hint">Jedno TCP spojení ukáže, kolik zvládne jediný stream; více spojení lépe vytíží rychlé linky.</string>
+    <string name="test_mode_hint">Jedno TCP spojení ukáže, kolik zvládne jediný stream; více spojení lépe vytíží rychlé linky. Test stability stahuje celou minutu a ukáže, jak je linka vyrovnaná.</string>
+    <string name="test_mode_stability">Stabilita — 60 s stahování</string>
+
+    <string name="detail_mode">Režim testu</string>
+    <string name="mode_standard">Standardní</string>
+    <string name="mode_single">Jedno spojení</string>
+    <string name="mode_stability">Stabilita</string>
+    <string name="detail_bufferbloat">Bufferbloat</string>
+    <string name="detail_loaded_dl">Odezva při stahování</string>
+    <string name="detail_loaded_ul">Odezva při nahrávání</string>
+    <string name="section_stability">Stabilita</string>
+    <string name="detail_min">Minimum</string>
+    <string name="detail_max">Maximum</string>
+    <string name="detail_avg">Průměr</string>
+    <string name="detail_variation">Kolísání</string>
+    <string name="detail_operator">Mobilní síť</string>
+
+    <string name="servers_compare">Porovnat servery</string>
+    <string name="compare_hint">Spustí krátký test stahování proti nejrychlejším serverům.</string>
+    <string name="compare_run">Spustit porovnání</string>
+    <string name="compare_running">Testuji %1$s…</string>
+    <string name="compare_use">Použít tento server</string>
+
+    <string name="history_filter">Filtr</string>
+    <string name="filter_all">Vše</string>
+    <string name="filter_network">Síť</string>
+    <string name="filter_server">Server</string>
+    <string name="filter_period">Období</string>
+    <string name="filter_days_7">Posledních 7 dní</string>
+    <string name="filter_days_30">Posledních 30 dní</string>
+    <string name="history_export_csv">Export CSV</string>
+    <string name="history_export_json">Export JSON</string>
+    <string name="history_trends">Trendy</string>
+
+    <string name="settings_section_diagnostics">Diagnostika</string>
+    <string name="settings_report">Diagnostický report</string>
+    <string name="settings_report_hint">Souhrn aplikace, zařízení a posledního testu pro hlášení chyb. IP adresa není součástí.</string>
 </resources>

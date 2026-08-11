@@ -6,6 +6,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.telephony.TelephonyManager
 
 object NetworkInfo {
 
@@ -20,6 +21,25 @@ object NetworkInfo {
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
                 else -> null
             }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Cellular extras like "T-Mobile CZ · signal 3/4"; null on other transports or when unavailable. */
+    fun detail(context: Context): String? {
+        return try {
+            val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return null
+            if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return null
+            val telephony = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            val operator = telephony.networkOperatorName?.takeIf { it.isNotBlank() }
+            val signal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                telephony.signalStrength?.level?.let { "signal $it/4" }
+            } else {
+                null
+            }
+            listOfNotNull(operator, signal).joinToString(" · ").ifEmpty { null }
         } catch (_: Exception) {
             null
         }

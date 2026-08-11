@@ -144,5 +144,41 @@
     <string name="detail_data">Data used</string>
     <string name="test_mode_standard">Standard — multiple connections</string>
     <string name="test_mode_single">Single connection</string>
-    <string name="test_mode_hint">A single TCP connection shows how much one stream can use; multiple connections better saturate fast links.</string>
+    <string name="test_mode_stability">Stability — 60 s download</string>
+    <string name="test_mode_hint">A single TCP connection shows how much one stream can use; multiple connections better saturate fast links. The stability test downloads for a full minute to show how steady the line is.</string>
+
+    <string name="detail_mode">Test mode</string>
+    <string name="mode_standard">Standard</string>
+    <string name="mode_single">Single connection</string>
+    <string name="mode_stability">Stability</string>
+    <string name="detail_bufferbloat">Bufferbloat</string>
+    <string name="detail_loaded_dl">Latency under download</string>
+    <string name="detail_loaded_ul">Latency under upload</string>
+    <string name="section_stability">Stability</string>
+    <string name="detail_min">Minimum</string>
+    <string name="detail_max">Maximum</string>
+    <string name="detail_avg">Average</string>
+    <string name="detail_variation">Variation</string>
+    <string name="detail_operator">Mobile network</string>
+
+    <string name="servers_compare">Compare servers</string>
+    <string name="compare_hint">Runs a short download test against the fastest servers.</string>
+    <string name="compare_run">Run comparison</string>
+    <string name="compare_running">Testing %1$s…</string>
+    <string name="compare_use">Use this server</string>
+
+    <string name="history_filter">Filter</string>
+    <string name="filter_all">All</string>
+    <string name="filter_network">Network</string>
+    <string name="filter_server">Server</string>
+    <string name="filter_period">Period</string>
+    <string name="filter_days_7">Last 7 days</string>
+    <string name="filter_days_30">Last 30 days</string>
+    <string name="history_export_csv">Export CSV</string>
+    <string name="history_export_json">Export JSON</string>
+    <string name="history_trends">Trends</string>
+
+    <string name="settings_section_diagnostics">Diagnostics</string>
+    <string name="settings_report">Diagnostic report</string>
+    <string name="settings_report_hint">Summary of the app, device and last test for bug reports. Your IP address is not included.</string>
 </resources>

@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fdossena.speedtest.core.Speedtest
+import com.fdossena.speedtest.core.base.Connection
+import com.fdossena.speedtest.core.ping.Pinger
 import com.fdossena.speedtest.core.serverSelector.ServerSelector
 import com.fdossena.speedtest.core.serverSelector.TestPoint
 import kotlinx.coroutines.CancellationException
@@ -30,6 +32,8 @@ import org.librespeed.speedtest.data.HistoryEntry
 import org.librespeed.speedtest.data.NetworkInfo
 import org.librespeed.speedtest.data.key
 import org.librespeed.speedtest.engine.TestEngine
+import org.librespeed.speedtest.engine.TestMode
+import java.util.Collections
 import kotlin.math.roundToInt
 
 enum class Phase { IDLE, PING, DOWNLOAD, UPLOAD, ERROR }
@@ -70,10 +74,21 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
     val lastResultId = MutableStateFlow<Long?>(null)
 
     private var telemetryEnabled = false
-    private var singleConnection = false
+    private var testMode = "standard"
     private var autoSelected: TestPoint? = null
     private var discoveryJob: Job? = null
+
+    //written by the UI thread (stop) and the engine's worker/stream threads
+    @Volatile
     private var aborted = false
+    @Volatile
+    private var failed = false
+
+    //side channel measuring latency while the line is under load (bufferbloat)
+    @Volatile
+    private var loadedPinger: Pinger? = null
+    private val loadedDownSamples = Collections.synchronizedList(mutableListOf<Double>())
+    private val loadedUpSamples = Collections.synchronizedList(mutableListOf<Double>())
 
     init {
         viewModelScope.launch {
@@ -83,7 +98,7 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
             prefs.useMBytes.collect { useMBytes -> _state.update { it.copy(useMBytes = useMBytes) } }
         }
         viewModelScope.launch { prefs.telemetryEnabled.collect { telemetryEnabled = it } }
-        viewModelScope.launch { prefs.singleConnection.collect { singleConnection = it } }
+        viewModelScope.launch { prefs.testMode.collect { testMode = it } }
         refreshServers()
     }
 
@@ -229,13 +244,45 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun isRunning(): Boolean = _state.value.phase in setOf(Phase.PING, Phase.DOWNLOAD, Phase.UPLOAD)
 
+    private fun startLoadedPinger(server: TestPoint) {
+        if (loadedPinger != null) return
+        loadedPinger = try {
+            object : Pinger(Connection(server.server), server.pingURL) {
+                override fun onPong(ns: Long): Boolean {
+                    val ms = ns / 1_000_000.0
+                    when (_state.value.phase) {
+                        Phase.DOWNLOAD -> loadedDownSamples.add(ms)
+                        Phase.UPLOAD -> loadedUpSamples.add(ms)
+                        else -> Unit
+                    }
+                    return true
+                }
+
+                override fun onError(err: String?) = Unit
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun stopLoadedPinger() {
+        runCatching { loadedPinger?.stopASAP() }
+        loadedPinger = null
+    }
+
     private fun start() {
         val current = _state.value
         val server = current.selectedServer ?: return
         //pinging the rest of the list would compete with the measurement
         if (current.selectingServers) discoveryJob?.cancel()
         aborted = false
+        failed = false
         val networkType = NetworkInfo.describe(getApplication())
+        val networkDetail = NetworkInfo.detail(getApplication())
+        val mode = TestMode.fromKey(testMode)
+        val telemetry = telemetryEnabled
+        loadedDownSamples.clear()
+        loadedUpSamples.clear()
         val startedAt = System.currentTimeMillis()
         _state.update {
             it.copy(
@@ -246,9 +293,10 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
                 ipInfo = null, shareUrl = null, error = null
             )
         }
-        engine.prepare(current.servers, server, telemetryEnabled, singleConnection)
+        engine.prepare(current.servers, server, telemetry, mode)
         engine.start(object : Speedtest.SpeedtestHandler() {
             override fun onDownloadUpdate(dl: Double, progress: Double) {
+                startLoadedPinger(server)
                 _state.update {
                     it.copy(
                         phase = Phase.DOWNLOAD,
@@ -260,6 +308,7 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             override fun onUploadUpdate(ul: Double, progress: Double) {
+                startLoadedPinger(server)
                 _state.update {
                     it.copy(
                         phase = Phase.UPLOAD,
@@ -287,6 +336,11 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             override fun onEnd() {
+                stopLoadedPinger()
+                //the engine always fires onEnd, even after onCriticalFailure already
+                //reported the run broken; a failed run keeps its error on screen and
+                //is never saved as a result
+                if (failed) return
                 val finished = _state.value
                 if (aborted || finished.download < 0) {
                     resetToIdle()
@@ -309,7 +363,12 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
                                 networkType = networkType,
                                 downloadSamples = finished.downloadSamples,
                                 uploadSamples = finished.uploadSamples,
-                                durationMs = System.currentTimeMillis() - startedAt
+                                durationMs = System.currentTimeMillis() - startedAt,
+                                mode = mode.key,
+                                loadedDown = loadedDownSamples.toList().average().takeIf { !it.isNaN() } ?: -1.0,
+                                loadedUp = loadedUpSamples.toList().average().takeIf { !it.isNaN() } ?: -1.0,
+                                networkDetail = networkDetail,
+                                telemetrySent = telemetry
                             )
                         )
                     }
@@ -319,6 +378,8 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
             }
 
             override fun onCriticalFailure(err: String?) {
+                failed = true
+                stopLoadedPinger()
                 _state.update { it.copy(phase = Phase.ERROR, error = err, currentSpeed = 0.0) }
             }
         })
@@ -347,10 +408,12 @@ class SpeedtestViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun stop() {
         aborted = true
+        stopLoadedPinger()
         engine.abort()
     }
 
     override fun onCleared() {
+        stopLoadedPinger()
         engine.abort()
     }
 

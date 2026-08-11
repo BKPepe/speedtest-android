@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -67,7 +68,7 @@ private val Amber = Color(0xFFF7941D)
 
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
-fun ServersScreen(viewModel: SpeedtestViewModel) {
+fun ServersScreen(viewModel: SpeedtestViewModel, onCompareClick: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     //start on All servers when there are no favorites yet
@@ -104,6 +105,9 @@ fun ServersScreen(viewModel: SpeedtestViewModel) {
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onCompareClick) {
+                Icon(Icons.Filled.Insights, contentDescription = stringResource(R.string.servers_compare))
+            }
             IconButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.servers_add))
             }

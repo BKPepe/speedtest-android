@@ -62,7 +62,8 @@ fun SpeedtestScreen(
     viewModel: SpeedtestViewModel,
     onServersClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onResult: (Long) -> Unit
+    onResult: (Long) -> Unit,
+    tabletop: Boolean = false
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resultId by viewModel.lastResultId.collectAsStateWithLifecycle()
@@ -119,30 +120,60 @@ fun SpeedtestScreen(
             }
         )
 
-        Spacer(Modifier.weight(1f))
-        SpeedGauge(
-            speed = state.currentSpeed,
-            modifier = Modifier.widthIn(max = 384.dp).fillMaxWidth()
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (state.phase == Phase.IDLE || state.phase == Phase.ERROR) "—"
-                    else String.format(Locale.US, "%.2f", display(state.currentSpeed)),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = unitLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(4.dp))
-                PhaseLabel(state)
+        if (tabletop) {
+            //half-open fold: gauge on the upper display half, controls on the lower one
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                GaugeSection(state, unitLabel, display = { display(it) })
             }
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                MetricsSection(state, viewModel, unitLabel, display = { display(it) })
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+            GaugeSection(state, unitLabel, display = { display(it) })
+            Spacer(Modifier.weight(1f))
+            MetricsSection(state, viewModel, unitLabel, display = { display(it) })
         }
+        Spacer(Modifier.height(12.dp))
+    }
+}
 
-        Spacer(Modifier.weight(1f))
+@Composable
+private fun GaugeSection(state: SpeedtestUiState, unitLabel: String, display: (Double) -> Double) {
+    SpeedGauge(
+        speed = state.currentSpeed,
+        modifier = Modifier.widthIn(max = 384.dp).fillMaxWidth()
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = if (state.phase == Phase.IDLE || state.phase == Phase.ERROR) "—"
+                else String.format(Locale.US, "%.2f", display(state.currentSpeed)),
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = unitLabel,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            PhaseLabel(state)
+        }
+    }
+}
+
+@Composable
+private fun MetricsSection(
+    state: SpeedtestUiState,
+    viewModel: SpeedtestViewModel,
+    unitLabel: String,
+    display: (Double) -> Double
+) {
         Row(modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
                 modifier = Modifier.weight(1f),
@@ -207,8 +238,6 @@ fun SpeedtestScreen(
                 textAlign = TextAlign.Center
             )
         }
-        Spacer(Modifier.height(12.dp))
-    }
 }
 
 @Composable

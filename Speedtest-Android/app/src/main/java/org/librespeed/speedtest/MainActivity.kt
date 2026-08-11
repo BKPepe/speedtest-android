@@ -9,6 +9,8 @@ import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
 import org.librespeed.speedtest.data.AppPreferences
 import org.librespeed.speedtest.data.ClientInfo
 import org.librespeed.speedtest.ui.App
@@ -26,6 +28,12 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { AppPreferences(applicationContext) }
             val themeMode by prefs.themeMode.collectAsStateWithLifecycle(initialValue = "system")
             val windowSizeClass = calculateWindowSizeClass(this)
+            val layoutInfo by remember { WindowInfoTracker.getOrCreate(this).windowLayoutInfo(this) }
+                .collectAsStateWithLifecycle(initialValue = null)
+            //half-opened fold with a horizontal hinge = tabletop posture
+            val tabletop = layoutInfo?.displayFeatures
+                ?.filterIsInstance<FoldingFeature>()
+                ?.any { it.state == FoldingFeature.State.HALF_OPENED && it.orientation == FoldingFeature.Orientation.HORIZONTAL } == true
             LibreSpeedTheme(
                 mode = when (themeMode) {
                     "light" -> ThemeMode.LIGHT
@@ -33,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     else -> ThemeMode.SYSTEM
                 }
             ) {
-                App(windowWidth = windowSizeClass.widthSizeClass)
+                App(windowWidth = windowSizeClass.widthSizeClass, tabletop = tabletop)
             }
         }
     }

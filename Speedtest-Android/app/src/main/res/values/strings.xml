@@ -9,6 +9,9 @@
     <string name="unit_mbps">Mbps</string>
     <string name="unit_mbytes">MB/s</string>
     <string name="unit_ms">ms</string>
+    <string name="unit_percent" formatted="false">%</string>
+    <string name="unit_seconds_fmt">%1$s s</string>
+    <string name="data_mb_fmt">~ %1$s MB</string>
 
     <string name="test_download">Download</string>
     <string name="test_upload">Upload</string>
@@ -43,6 +46,8 @@
     <string name="servers_add_confirm">Add</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_close">Close</string>
+    <string name="nav_back">Back</string>
+    <string name="more_options">More options</string>
 
     <string name="history_empty">No tests yet — run your first speed test</string>
     <string name="history_clear">Clear history</string>
@@ -59,16 +64,18 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system">System</string>
     <string name="settings_units">Units</string>
     <string name="unit_mbps_long">Mbps — megabits per second</string>
     <string name="unit_mbytes_long">MB/s — megabytes per second</string>
     <string name="settings_units_hint">Internet plans are usually sold in Mbps (megabits). 8 Mbps equals 1 MB/s (megabyte per second), the unit file managers usually show.</string>
-    <string name="settings_telemetry">Share anonymous telemetry</string>
-    <string name="settings_telemetry_summary">Help improve LibreSpeed by sharing anonymous aggregate test information. Off by default.</string>
-    <string name="settings_telemetry_detail">When enabled, the test result (speeds, ping, jitter), client information and your IP address are submitted to the tested server after each test. Nothing is sent while this is off.</string>
+    <string name="settings_telemetry">Share test results with the tested server</string>
+    <string name="settings_telemetry_summary">Help improve LibreSpeed by sharing your test results with the server you test against. Off by default.</string>
+    <string name="settings_telemetry_detail">When enabled, the test result (speeds, ping, jitter), your IP address with the ISP and approximate location details the server reports for it, a technical log of the test run, and client information (app version, Android version, device product, CPU architecture and language) are submitted to the tested server after each test. The server operator stores them in their results database and the app receives a link to the stored result. There is no central collection.</string>
+    <string name="settings_telemetry_detail_off">Nothing is sent while this is off.</string>
     <string name="settings_license">Free and open source, licensed under LGPL-3.0</string>
-    <string name="settings_source">Source code on GitHub</string>
-    <string name="settings_website">librespeed.org</string>
+    <string name="settings_report_issue">Report an issue or request a feature</string>
     <string name="settings_privacy">Privacy policy</string>
 
     <string name="share_result">Share result</string>
@@ -76,6 +83,7 @@
     <string name="share_text">LibreSpeed result — Download: %1$s, Upload: %2$s, Ping: %3$s ms, Jitter: %4$s ms (server: %5$s)</string>
     <string name="share_text_loss">Packet loss: %1$s %%</string>
     <string name="share_text_network">Connection: %1$s</string>
+    <string name="share_text_protocol">Protocol: IPv%1$d</string>
 
     <string name="server_auto_select">Auto-select server</string>
     <string name="server_auto_select_with">Auto-select (%1$s)</string>
@@ -178,7 +186,21 @@
     <string name="history_export_json">Export JSON</string>
     <string name="history_trends">Trends</string>
 
+    <string name="settings_scheduled">Scheduled tests</string>
+    <string name="scheduled_off">Off</string>
+    <string name="scheduled_6h">Every 6 hours</string>
+    <string name="scheduled_daily">Daily</string>
+    <string name="scheduled_weekly">Weekly</string>
+    <string name="scheduled_hint">Runs a full test in the background and saves it to history. A run can use ~100 MB of data on fast connections.</string>
+    <string name="mode_scheduled">Scheduled</string>
+    <string name="notif_channel">Test results</string>
+    <string name="notif_title">Speed test finished</string>
+
     <string name="settings_section_diagnostics">Diagnostics</string>
     <string name="settings_report">Diagnostic report</string>
     <string name="settings_report_hint">Summary of the app, device and last test for bug reports. Your IP address is not included.</string>
+    <string name="settings_report_send">Attach this report to a GitHub issue so the problem can be reproduced.</string>
+    <string name="report_share">Share</string>
+
+    <string name="bufferbloat_info">Bufferbloat is how much your latency grows when the line is fully loaded — it is what makes calls and games stutter while something is downloading. A and better means the connection stays responsive; C or worse is noticeable. To improve it, enable smart queue management (SQM/QoS with fq_codel or CAKE) on your router and set its bandwidth to about 95 %% of the measured speed.</string>
 </resources>

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.SsidChart
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.outlined.ArrowCircleDown
 import androidx.compose.material.icons.outlined.ArrowCircleUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -46,12 +47,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,10 +64,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.librespeed.speedtest.R
+import org.librespeed.speedtest.ui.currentLocale
 import org.librespeed.speedtest.data.AppPreferences
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.HistoryDatabase
@@ -75,8 +78,7 @@ import org.librespeed.speedtest.data.TestStats
 import org.librespeed.speedtest.share.ShareResult
 import org.librespeed.speedtest.ui.components.Sparkline
 import org.librespeed.speedtest.ui.history.formatDate
-import org.librespeed.speedtest.ui.theme.Purple
-import org.librespeed.speedtest.ui.theme.Teal
+import org.librespeed.speedtest.ui.theme.LocalSpeedAccents
 import java.util.Locale
 
 @Composable
@@ -93,6 +95,7 @@ fun ResultScreen(
     var entry by remember { mutableStateOf<HistoryEntry?>(null) }
     var missing by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    var bloatInfo by remember { mutableStateOf(false) }
 
     LaunchedEffect(entryId) {
         val loaded = withContext(Dispatchers.IO) { HistoryDatabase(context.applicationContext).read(entryId) }
@@ -124,7 +127,7 @@ fun ResultScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.dialog_close))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
             }
             Text(
                 text = stringResource(R.string.result_title),
@@ -138,7 +141,7 @@ fun ResultScreen(
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
@@ -155,12 +158,13 @@ fun ResultScreen(
                             copyText()
                         }
                     )
-                    val deleteScope = rememberCoroutineScope()
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.history_delete), color = MaterialTheme.colorScheme.error) },
                         onClick = {
                             menuOpen = false
-                            deleteScope.launch(Dispatchers.IO) {
+                            //a composition-bound scope dies with the popped screen and can
+                            //cancel the delete before it starts; this one outlives both
+                            CoroutineScope(Dispatchers.IO).launch {
                                 HistoryDatabase(context.applicationContext).delete(result.id)
                             }
                             onBack()
@@ -199,6 +203,7 @@ fun ResultScreen(
                 }
             }
 
+            val accents = LocalSpeedAccents.current
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SpeedCard(
                     modifier = Modifier.weight(1f),
@@ -206,7 +211,7 @@ fun ResultScreen(
                     label = stringResource(R.string.test_download),
                     value = display(result.download),
                     unit = unitLabel,
-                    accent = Teal,
+                    accent = accents.download,
                     samples = result.downloadSamples
                 )
                 SpeedCard(
@@ -215,7 +220,7 @@ fun ResultScreen(
                     label = stringResource(R.string.test_upload),
                     value = display(result.upload),
                     unit = unitLabel,
-                    accent = Purple,
+                    accent = accents.upload,
                     samples = result.uploadSamples
                 )
             }
@@ -246,20 +251,21 @@ fun ResultScreen(
                     }
                     if (result.durationMs > 0) {
                         RowDivider()
-                        DetailRow(stringResource(R.string.detail_duration), String.format(Locale.US, "%.1f s", result.durationMs / 1000.0), Icons.Filled.Schedule)
+                        DetailRow(stringResource(R.string.detail_duration), stringResource(R.string.unit_seconds_fmt, String.format(currentLocale, "%.1f", result.durationMs / 1000.0)), Icons.Filled.Schedule)
                     }
                     val totalMb = (result.downloadSamples.sum() + result.uploadSamples.sum()) * 0.1 / 8
                     if (totalMb > 0) {
                         RowDivider()
-                        DetailRow(stringResource(R.string.detail_data), String.format(Locale.US, "~ %.0f MB", totalMb), Icons.Filled.DataUsage)
+                        DetailRow(stringResource(R.string.detail_data), stringResource(R.string.data_mb_fmt, String.format(currentLocale, "%.0f", totalMb)), Icons.Filled.DataUsage)
                     }
                     val loadedMax = maxOf(result.loadedDown, result.loadedUp)
                     TestStats.bufferbloatGrade(result.ping, loadedMax)?.let { grade ->
                         RowDivider()
                         DetailRow(
                             stringResource(R.string.detail_bufferbloat),
-                            String.format(Locale.US, "%s · +%.0f ms", grade, (loadedMax - result.ping).coerceAtLeast(0.0)),
-                            Icons.Filled.NetworkCheck
+                            String.format(currentLocale, "%s · +%.0f %s", grade, (loadedMax - result.ping).coerceAtLeast(0.0), stringResource(R.string.unit_ms)),
+                            Icons.Filled.NetworkCheck,
+                            onClick = { bloatInfo = true }
                         )
                     }
                 }
@@ -308,6 +314,17 @@ fun ResultScreen(
             Spacer(Modifier.height(12.dp))
         }
     }
+
+    if (bloatInfo) {
+        AlertDialog(
+            onDismissRequest = { bloatInfo = false },
+            title = { Text(stringResource(R.string.detail_bufferbloat)) },
+            text = { Text(stringResource(R.string.bufferbloat_info)) },
+            confirmButton = {
+                TextButton(onClick = { bloatInfo = false }) { Text(stringResource(R.string.dialog_close)) }
+            }
+        )
+    }
 }
 
 @Composable
@@ -333,7 +350,7 @@ private fun SpeedCard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = String.format(Locale.US, "%.2f", value),
+                text = if (value < 0) "—" else String.format(currentLocale, "%.2f", value),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = accent
@@ -370,7 +387,7 @@ private fun MetricBox(modifier: Modifier, icon: ImageVector, title: String, valu
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = if (value < 0) "—" else String.format(Locale.US, "%.1f", value),
+                    text = if (value < 0) "—" else String.format(currentLocale, "%.1f", value),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -388,8 +405,13 @@ private fun MetricBox(modifier: Modifier, icon: ImageVector, title: String, valu
 }
 
 @Composable
-internal fun DetailRow(title: String, value: String, icon: ImageVector? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+internal fun DetailRow(title: String, value: String, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
+    val rowModifier = if (onClick != null) {
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp)
+    } else {
+        Modifier.fillMaxWidth().padding(vertical = 9.dp)
+    }
+    Row(rowModifier, verticalAlignment = Alignment.CenterVertically) {
         icon?.let {
             Icon(
                 it,

@@ -1,5 +1,6 @@
 package org.librespeed.speedtest.ui.settings
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
@@ -22,30 +24,59 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.librespeed.speedtest.R
 
-private data class Library(val name: String, val license: String, val url: String)
+data class Library(val name: String, val license: String, val url: String)
 
-private val LIBRARIES = listOf(
-    Library("LibreSpeed speedtest engine", "LGPL-3.0", "https://github.com/librespeed/speedtest-android"),
-    Library("Kotlin & kotlinx.coroutines", "Apache-2.0", "https://kotlinlang.org"),
-    Library("Jetpack Compose & Material 3", "Apache-2.0", "https://developer.android.com/jetpack/compose"),
-    Library("Material Icons", "Apache-2.0", "https://fonts.google.com/icons"),
-    Library("AndroidX Navigation Compose", "Apache-2.0", "https://developer.android.com/jetpack/androidx/releases/navigation"),
-    Library("AndroidX DataStore", "Apache-2.0", "https://developer.android.com/jetpack/androidx/releases/datastore"),
-    Library("AndroidX Lifecycle", "Apache-2.0", "https://developer.android.com/jetpack/androidx/releases/lifecycle"),
-    Library("AndroidX Core & Activity", "Apache-2.0", "https://developer.android.com/jetpack/androidx")
+private val ENGINE = Library(
+    "LibreSpeed speedtest engine", "LGPL-3.0", "https://github.com/librespeed/speedtest-android"
 )
+
+/** Reads the licensee-generated report bundled as an asset; the engine is in-tree, so it is added by hand. */
+internal fun loadLibraries(context: Context): List<Library> {
+    val fromReport = try {
+        val json = context.assets.open("licenses.json").bufferedReader().use { it.readText() }
+        val array = JSONArray(json)
+        (0 until array.length()).mapNotNull { index ->
+            val artifact = array.getJSONObject(index)
+            val licenses = artifact.optJSONArray("spdxLicenses") ?: return@mapNotNull null
+            if (licenses.length() == 0) return@mapNotNull null
+            val first = licenses.getJSONObject(0)
+            Library(
+                name = artifact.optString("name").ifEmpty { artifact.getString("artifactId") },
+                license = first.optString("identifier"),
+                url = artifact.optJSONObject("scm")?.optString("url")?.takeIf { it.isNotEmpty() }
+                    ?: first.optString("url")
+            )
+        }.distinctBy { it.name }.sortedBy { it.name.lowercase() }
+    } catch (_: Exception) {
+        emptyList()
+    }
+    return listOf(ENGINE) + fromReport
+}
 
 @Composable
 fun LicensesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    var libraries by remember { mutableStateOf(listOf(ENGINE)) }
+
+    LaunchedEffect(Unit) {
+        libraries = withContext(Dispatchers.IO) { loadLibraries(context.applicationContext) }
+    }
 
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
@@ -53,7 +84,7 @@ fun LicensesScreen(onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.dialog_close))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
             }
             Text(
                 text = stringResource(R.string.settings_licenses),
@@ -66,14 +97,14 @@ fun LicensesScreen(onBack: () -> Unit) {
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        LIBRARIES.forEachIndexed { index, library ->
+                        libraries.forEachIndexed { index, library ->
                             if (index > 0) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                             }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .clickable(enabled = library.url.isNotEmpty()) {
                                         try {
                                             context.startActivity(Intent(Intent.ACTION_VIEW, library.url.toUri()))
                                         } catch (_: Exception) {

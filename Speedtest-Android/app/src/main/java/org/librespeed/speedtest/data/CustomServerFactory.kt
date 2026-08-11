@@ -6,26 +6,31 @@ import java.net.URI
 object CustomServerFactory {
 
     /**
-     * Builds a TestPoint from a user supplied URL. The engine only uses host:port of "server",
-     * so any sub-path has to move into the endpoint fields. Without a scheme the engine tries
-     * HTTPS first and falls back to HTTP ("//host").
+     * Builds a TestPoint from a user supplied URL. Any sub-path moves into the endpoint
+     * fields, which keeps the entry independent of how the engine resolves a base path.
+     * Without a scheme the engine tries HTTPS first and falls back to HTTP ("//host").
      */
     @Throws(IllegalArgumentException::class)
     fun create(name: String, url: String): TestPoint {
         require(name.isNotBlank()) { "Name cannot be empty" }
-        val trimmed = url.trim().trimEnd('/')
+        //decide about the scheme before touching slashes, otherwise "https://" degenerates
+        val cleaned = url.trim()
+        val trimmed = (if (cleaned.contains("://")) cleaned else "https://$cleaned").trimEnd('/')
         val uri = try {
-            URI(if (trimmed.contains("://")) trimmed else "https://$trimmed")
+            URI(trimmed)
         } catch (e: Exception) {
             throw IllegalArgumentException("Invalid URL", e)
         }
-        val host = uri.host ?: throw IllegalArgumentException("Invalid URL")
+        val host = uri.host?.takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("Invalid URL")
         //IPv6 literals must stay bracketed inside the URL
         val bracketedHost = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
+        //the scheme the user actually typed; no scheme means protocol relative,
+        //and anything the engine does not speak must be rejected, not downgraded
         val scheme = when {
-            trimmed.startsWith("http://") -> "http://"
-            trimmed.startsWith("https://") -> "https://"
-            else -> "//"
+            !cleaned.contains("://") -> "//"
+            cleaned.startsWith("http://", ignoreCase = true) -> "http://"
+            cleaned.startsWith("https://", ignoreCase = true) -> "https://"
+            else -> throw IllegalArgumentException("Only http(s) URLs are supported")
         }
         val server = buildString {
             append(scheme)

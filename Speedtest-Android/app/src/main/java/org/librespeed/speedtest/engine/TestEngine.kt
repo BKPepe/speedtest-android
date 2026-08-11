@@ -2,6 +2,7 @@ package org.librespeed.speedtest.engine
 
 import android.content.Context
 import com.fdossena.speedtest.core.Speedtest
+import com.fdossena.speedtest.core.base.Connection
 import com.fdossena.speedtest.core.config.SpeedtestConfig
 import com.fdossena.speedtest.core.config.TelemetryConfig
 import com.fdossena.speedtest.core.serverSelector.TestPoint
@@ -10,6 +11,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.librespeed.speedtest.data.ClientInfo
 import java.io.IOException
 import kotlin.coroutines.resume
 
@@ -22,6 +24,12 @@ enum class TestMode(val key: String) {
 }
 
 class TestEngine(private val context: Context) {
+
+    init {
+        //background entry points (the scheduled worker) never pass MainActivity,
+        //so the sanitized app UA must be installed before the first connection
+        Connection.setUserAgent(ClientInfo.userAgent)
+    }
 
     private var speedtest: Speedtest? = null
 
@@ -64,9 +72,18 @@ class TestEngine(private val context: Context) {
         Discovery(st.testPoints.toList(), selected)
     }
 
-    /** Prepares a fresh test run against an already known server, without re-pinging everything. */
-    fun prepare(servers: List<TestPoint>, selected: TestPoint, telemetryEnabled: Boolean, mode: TestMode = TestMode.STANDARD) {
-        val st = newSpeedtest(telemetryEnabled, mode)
+    /**
+     * Prepares a fresh test run against an already known server, without re-pinging everything.
+     * [configOverrides] lets tests shorten the phases; production callers leave it null.
+     */
+    fun prepare(
+        servers: List<TestPoint>,
+        selected: TestPoint,
+        telemetryEnabled: Boolean,
+        mode: TestMode = TestMode.STANDARD,
+        configOverrides: JSONObject? = null
+    ) {
+        val st = newSpeedtest(telemetryEnabled, mode, configOverrides)
         st.addTestPoints(servers.toTypedArray())
         st.setSelectedServer(selected)
         speedtest = st
@@ -80,7 +97,11 @@ class TestEngine(private val context: Context) {
         runCatching { speedtest?.abort() }
     }
 
-    private fun newSpeedtest(telemetryEnabled: Boolean, mode: TestMode = TestMode.STANDARD): Speedtest {
+    private fun newSpeedtest(
+        telemetryEnabled: Boolean,
+        mode: TestMode = TestMode.STANDARD,
+        configOverrides: JSONObject? = null
+    ): Speedtest {
         val st = Speedtest()
         val configJson = runCatching { JSONObject(readAsset("SpeedtestConfig.json") ?: "{}") }.getOrDefault(JSONObject())
         when (mode) {
@@ -101,6 +122,7 @@ class TestEngine(private val context: Context) {
             }
             TestMode.STANDARD -> Unit
         }
+        configOverrides?.keys()?.forEach { key -> configJson.put(key, configOverrides.get(key)) }
         runCatching { st.setSpeedtestConfig(SpeedtestConfig(configJson)) }
         val telemetryJson = if (telemetryEnabled) {
             JSONObject().put("telemetryLevel", TelemetryConfig.LEVEL_FULL)

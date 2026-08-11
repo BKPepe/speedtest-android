@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.librespeed.speedtest.R
+import org.librespeed.speedtest.ui.currentLocale
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.HistoryEntry
 import org.librespeed.speedtest.share.HistoryExport
@@ -223,7 +224,7 @@ private fun TrendColumn(
     Column(modifier) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = String.format(Locale.getDefault(), "%.0f", average),
+                text = String.format(currentLocale, "%.0f", average),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = accent
@@ -356,7 +357,7 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = String.format(Locale.getDefault(), "%.0f", entry.download),
+                    text = String.format(currentLocale, "%.0f", entry.download),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = LocalSpeedAccents.current.download
@@ -370,7 +371,7 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
             Spacer(Modifier.width(14.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = String.format(Locale.getDefault(), "%.0f", entry.upload),
+                    text = String.format(currentLocale, "%.0f", entry.upload),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = LocalSpeedAccents.current.upload

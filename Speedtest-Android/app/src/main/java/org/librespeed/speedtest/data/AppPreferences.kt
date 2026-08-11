@@ -29,6 +29,8 @@ class AppPreferences(private val context: Context) {
         val TELEMETRY = booleanPreferencesKey("telemetry_enabled")
         val SINGLE_CONNECTION = booleanPreferencesKey("single_connection")
         val TEST_MODE = stringPreferencesKey("test_mode")
+        val ASKED_PHONE_STATE = booleanPreferencesKey("asked_phone_state")
+        val SCHEDULED_TESTS = stringPreferencesKey("scheduled_tests")
         val GEO_CACHE = stringPreferencesKey("geo_cache")
     }
 
@@ -71,6 +73,22 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setTestMode(value: String) {
         context.dataStore.edit { it[Keys.TEST_MODE] = value }
+    }
+
+    /** The one-time READ_PHONE_STATE prompt before a test on a mobile network. */
+    val askedPhoneState: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.ASKED_PHONE_STATE] ?: false }
+
+    suspend fun markPhoneStateAsked() {
+        context.dataStore.edit { it[Keys.ASKED_PHONE_STATE] = true }
+    }
+
+    /** "off", "6h", "daily" or "weekly" */
+    val scheduledTests: Flow<String> =
+        context.dataStore.data.map { it[Keys.SCHEDULED_TESTS] ?: "off" }
+
+    suspend fun setScheduledTests(value: String) {
+        context.dataStore.edit { it[Keys.SCHEDULED_TESTS] = value }
     }
 
     suspend fun setThemeMode(mode: String) {

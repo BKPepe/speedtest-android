@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.librespeed.speedtest.R
+import org.librespeed.speedtest.ui.currentLocale
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.key
 import org.librespeed.speedtest.engine.TestEngine
@@ -219,7 +220,7 @@ fun CompareScreen(
                             row.running -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             row.download != null && row.download > 0 -> Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = String.format(Locale.getDefault(), "%.1f", row.download),
+                                    text = String.format(currentLocale, "%.1f", row.download),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = accent

@@ -41,6 +41,9 @@ import org.librespeed.speedtest.ui.settings.SettingsScreen
 import org.librespeed.speedtest.ui.speedtest.SpeedtestScreen
 import org.librespeed.speedtest.ui.speedtest.SpeedtestViewModel
 
+/** Fold crease position in window coordinates (px), for tabletop layouts. */
+data class HingeBounds(val top: Int, val bottom: Int)
+
 enum class Destination(val route: String, @StringRes val label: Int, val icon: ImageVector) {
     SPEEDTEST("speedtest", R.string.nav_speedtest, Icons.Filled.Speed),
     HISTORY("history", R.string.nav_history, Icons.Filled.History),
@@ -50,7 +53,7 @@ enum class Destination(val route: String, @StringRes val label: Int, val icon: I
 
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
-fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact, tabletop: Boolean = false) {
+fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact, hinge: HingeBounds? = null) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -102,7 +105,7 @@ fun App(windowWidth: WindowWidthSizeClass = WindowWidthSizeClass.Compact, tablet
                         onServersClick = { navController.navigateTo(Destination.SERVERS) },
                         onSettingsClick = { navController.navigateTo(Destination.SETTINGS) },
                         onResult = { id -> navController.navigate("result/$id") },
-                        tabletop = tabletop
+                        hinge = hinge
                     )
                 }
                 composable(Destination.HISTORY.route) {

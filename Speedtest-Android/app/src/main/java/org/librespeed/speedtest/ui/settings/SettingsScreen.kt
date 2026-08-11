@@ -1,6 +1,7 @@
 package org.librespeed.speedtest.ui.settings
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,7 +45,14 @@ import org.librespeed.speedtest.data.AppPreferences
 import org.librespeed.speedtest.data.ClientInfo
 
 private const val PROJECT_URL = "https://github.com/librespeed/speedtest-android"
-private const val WEBSITE_URL = "https://librespeed.org"
+
+private data class Language(val tag: String, val label: String)
+
+//labels stay in their own language on purpose; add new locales here and in locales_config.xml
+private val LANGUAGES = listOf(
+    Language("en", "English"),
+    Language("cs", "Čeština")
+)
 
 @Composable
 fun SettingsScreen(
@@ -61,8 +70,14 @@ fun SettingsScreen(
     val useMBytes by prefs.useMBytes.collectAsStateWithLifecycle(initialValue = false)
     val telemetry by prefs.telemetryEnabled.collectAsStateWithLifecycle(initialValue = false)
     val testMode by prefs.testMode.collectAsStateWithLifecycle(initialValue = "standard")
+    val scheduledTests by prefs.scheduledTests.collectAsStateWithLifecycle(initialValue = "off")
+    val notificationLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
 
     var unitsDialog by remember { mutableStateOf(false) }
+    var languageDialog by remember { mutableStateOf(false) }
+    var scheduledDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var testModeDialog by remember { mutableStateOf(false) }
     var whatIsSentDialog by remember { mutableStateOf(false) }
@@ -93,6 +108,19 @@ fun SettingsScreen(
                 value = stringResource(if (useMBytes) R.string.unit_mbytes else R.string.unit_mbps),
                 onClick = { unitsDialog = true }
             )
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                RowDivider()
+                val localeManager = remember {
+                    context.getSystemService(android.app.LocaleManager::class.java)
+                }
+                val current = localeManager?.applicationLocales?.takeIf { !it.isEmpty }?.get(0)?.language
+                ValueRow(
+                    title = stringResource(R.string.settings_language),
+                    value = LANGUAGES.find { it.tag == current }?.label
+                        ?: stringResource(R.string.language_system),
+                    onClick = { languageDialog = true }
+                )
+            }
             RowDivider()
             ValueRow(
                 title = stringResource(R.string.settings_theme),
@@ -104,6 +132,19 @@ fun SettingsScreen(
                     }
                 ),
                 onClick = { themeDialog = true }
+            )
+            RowDivider()
+            ValueRow(
+                title = stringResource(R.string.settings_scheduled),
+                value = stringResource(
+                    when (scheduledTests) {
+                        "6h" -> R.string.scheduled_6h
+                        "daily" -> R.string.scheduled_daily
+                        "weekly" -> R.string.scheduled_weekly
+                        else -> R.string.scheduled_off
+                    }
+                ),
+                onClick = { scheduledDialog = true }
             )
             RowDivider()
             ValueRow(
@@ -170,13 +211,11 @@ fun SettingsScreen(
                 )
             }
             RowDivider()
-            NavRow(stringResource(R.string.settings_licenses), onLicensesClick)
-            RowDivider()
-            NavRow(stringResource(R.string.settings_source)) { context.openUrl(PROJECT_URL) }
-            RowDivider()
-            NavRow(stringResource(R.string.settings_website)) { context.openUrl(WEBSITE_URL) }
+            NavRow(stringResource(R.string.settings_report_issue)) { context.openUrl("$PROJECT_URL/issues") }
             RowDivider()
             NavRow(stringResource(R.string.settings_privacy)) { context.openUrl("$PROJECT_URL/blob/master/PRIVACY.md") }
+            RowDivider()
+            NavRow(stringResource(R.string.settings_licenses), onLicensesClick)
         }
         Spacer(Modifier.height(16.dp))
     }
@@ -191,6 +230,44 @@ fun SettingsScreen(
             hint = stringResource(R.string.settings_units_hint),
             onSelect = { index -> scope.launch { prefs.setUseMBytes(index == 1) } },
             onDismiss = { unitsDialog = false }
+        )
+    }
+    if (languageDialog && android.os.Build.VERSION.SDK_INT >= 33) {
+        val localeManager = context.getSystemService(android.app.LocaleManager::class.java)
+        val current = localeManager?.applicationLocales?.takeIf { !it.isEmpty }?.get(0)?.language
+        val options = listOf(null to stringResource(R.string.language_system)) +
+            LANGUAGES.map { it.tag to it.label }
+        RadioDialog(
+            title = stringResource(R.string.settings_language),
+            options = options.map { (tag, label) -> label to (current == tag) },
+            hint = null,
+            onSelect = { index ->
+                localeManager?.applicationLocales = options[index].first
+                    ?.let { android.os.LocaleList.forLanguageTags(it) }
+                    ?: android.os.LocaleList.getEmptyLocaleList()
+            },
+            onDismiss = { languageDialog = false }
+        )
+    }
+    if (scheduledDialog) {
+        RadioDialog(
+            title = stringResource(R.string.settings_scheduled),
+            options = listOf(
+                stringResource(R.string.scheduled_off) to (scheduledTests == "off"),
+                stringResource(R.string.scheduled_6h) to (scheduledTests == "6h"),
+                stringResource(R.string.scheduled_daily) to (scheduledTests == "daily"),
+                stringResource(R.string.scheduled_weekly) to (scheduledTests == "weekly")
+            ),
+            hint = stringResource(R.string.scheduled_hint),
+            onSelect = { index ->
+                val mode = listOf("off", "6h", "daily", "weekly")[index]
+                scope.launch { prefs.setScheduledTests(mode) }
+                org.librespeed.speedtest.work.ScheduledTests.apply(context.applicationContext, mode)
+                if (mode != "off" && android.os.Build.VERSION.SDK_INT >= 33) {
+                    notificationLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            },
+            onDismiss = { scheduledDialog = false }
         )
     }
     if (themeDialog) {
@@ -239,17 +316,34 @@ fun SettingsScreen(
             onDismissRequest = { reportDialog = false },
             title = { Text(stringResource(R.string.settings_report)) },
             text = {
-                Text(
-                    text = report,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.verticalScroll(rememberScrollState())
-                )
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = stringResource(R.string.settings_report_send),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(report, style = MaterialTheme.typography.bodySmall)
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    org.librespeed.speedtest.share.ShareResult.copy(context, report)
-                    reportDialog = false
-                }) { Text(stringResource(R.string.share_copy)) }
+                Row {
+                    TextButton(onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, report)
+                            }
+                            context.startActivity(Intent.createChooser(intent, null))
+                        } catch (_: Exception) {
+                        }
+                        reportDialog = false
+                    }) { Text(stringResource(R.string.report_share)) }
+                    TextButton(onClick = {
+                        org.librespeed.speedtest.share.ShareResult.copy(context, report)
+                        reportDialog = false
+                    }) { Text(stringResource(R.string.share_copy)) }
+                }
             },
             dismissButton = {
                 TextButton(onClick = { reportDialog = false }) { Text(stringResource(R.string.dialog_close)) }
@@ -260,7 +354,16 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { whatIsSentDialog = false },
             title = { Text(stringResource(R.string.settings_whats_sent)) },
-            text = { Text(stringResource(R.string.settings_telemetry_detail)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_telemetry_detail))
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_telemetry_detail_off),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = { whatIsSentDialog = false }) { Text(stringResource(R.string.dialog_close)) }
             }

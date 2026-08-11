@@ -9,6 +9,9 @@
     <string name="unit_mbps">Mb/s</string>
     <string name="unit_mbytes">MB/s</string>
     <string name="unit_ms">ms</string>
+    <string name="unit_percent" formatted="false">%</string>
+    <string name="unit_seconds_fmt">%1$s s</string>
+    <string name="data_mb_fmt">~ %1$s MB</string>
 
     <string name="test_download">Stahování</string>
     <string name="test_upload">Odesílání</string>
@@ -43,6 +46,8 @@
     <string name="servers_add_confirm">Přidat</string>
     <string name="dialog_cancel">Zrušit</string>
     <string name="dialog_close">Zavřít</string>
+    <string name="nav_back">Zpět</string>
+    <string name="more_options">Další možnosti</string>
 
     <string name="history_empty">Zatím žádné testy — spusťte svůj první test rychlosti</string>
     <string name="history_clear">Smazat historii</string>
@@ -59,16 +64,18 @@
     <string name="theme_system">Podle systému</string>
     <string name="theme_light">Světlý</string>
     <string name="theme_dark">Tmavý</string>
+    <string name="settings_language">Jazyk</string>
+    <string name="language_system">Systémový</string>
     <string name="settings_units">Jednotky</string>
     <string name="unit_mbps_long">Mb/s — megabity za sekundu</string>
     <string name="unit_mbytes_long">MB/s — megabajty za sekundu</string>
     <string name="settings_units_hint">Internetové tarify se obvykle prodávají v Mb/s (megabitech). 8 Mb/s odpovídá 1 MB/s (megabajtu za sekundu), tedy jednotce, kterou většinou ukazují správci souborů.</string>
-    <string name="settings_telemetry">Sdílet anonymní telemetrii</string>
-    <string name="settings_telemetry_summary">Pomozte zlepšovat LibreSpeed sdílením anonymních souhrnných informací o testech. Ve výchozím stavu vypnuto.</string>
-    <string name="settings_telemetry_detail">Po zapnutí se po každém testu odešle výsledek (rychlosti, ping, jitter), informace o klientovi a vaše IP adresa testovanému serveru. Dokud je volba vypnutá, neodesílá se nic.</string>
+    <string name="settings_telemetry">Sdílet výsledky testů s testovaným serverem</string>
+    <string name="settings_telemetry_summary">Pomozte zlepšovat LibreSpeed sdílením výsledků testů se serverem, proti kterému testujete. Ve výchozím stavu vypnuto.</string>
+    <string name="settings_telemetry_detail">Po zapnutí se po každém testu odešle na testovaný server výsledek testu (rychlosti, ping, jitter), vaše IP adresa spolu s údaji o poskytovateli a přibližné poloze, které k ní server uvádí, technický záznam průběhu testu a informace o klientovi (verze aplikace, verze Androidu, produkt zařízení, architektura procesoru a jazyk). Provozovatel serveru je uloží do své databáze výsledků a aplikace dostane odkaz na uložený výsledek. Žádný centrální sběr neexistuje.</string>
+    <string name="settings_telemetry_detail_off">Při vypnutí se neposílá nic.</string>
     <string name="settings_license">Svobodný a otevřený software pod licencí LGPL-3.0</string>
-    <string name="settings_source">Zdrojový kód na GitHubu</string>
-    <string name="settings_website">librespeed.org</string>
+    <string name="settings_report_issue">Nahlásit chybu nebo navrhnout funkci</string>
     <string name="settings_privacy">Zásady ochrany soukromí</string>
 
     <string name="share_result">Sdílet výsledek</string>
@@ -76,6 +83,7 @@
     <string name="share_text">Výsledek LibreSpeed — Stahování: %1$s, Odesílání: %2$s, Ping: %3$s ms, Jitter: %4$s ms (server: %5$s)</string>
     <string name="share_text_loss">Ztráta paketů: %1$s %%</string>
     <string name="share_text_network">Připojení: %1$s</string>
+    <string name="share_text_protocol">Protokol: IPv%1$d</string>
 
     <string name="server_auto_select">Automatický výběr serveru</string>
     <string name="server_auto_select_with">Automaticky (%1$s)</string>
@@ -178,7 +186,21 @@
     <string name="history_export_json">Export JSON</string>
     <string name="history_trends">Trendy</string>
 
+    <string name="settings_scheduled">Plánované testy</string>
+    <string name="scheduled_off">Vypnuto</string>
+    <string name="scheduled_6h">Každých 6 hodin</string>
+    <string name="scheduled_daily">Denně</string>
+    <string name="scheduled_weekly">Týdně</string>
+    <string name="scheduled_hint">Spustí celý test na pozadí a uloží ho do historie. Jeden běh může na rychlé lince přenést ~100 MB dat.</string>
+    <string name="mode_scheduled">Plánovaný</string>
+    <string name="notif_channel">Výsledky testů</string>
+    <string name="notif_title">Test rychlosti dokončen</string>
+
     <string name="settings_section_diagnostics">Diagnostika</string>
     <string name="settings_report">Diagnostický report</string>
     <string name="settings_report_hint">Souhrn aplikace, zařízení a posledního testu pro hlášení chyb. IP adresa není součástí.</string>
+    <string name="settings_report_send">Přiložte tento report ke GitHub issue, ať jde problém zreprodukovat.</string>
+    <string name="report_share">Sdílet</string>
+
+    <string name="bufferbloat_info">Bufferbloat je nárůst odezvy ve chvíli, kdy je linka plně vytížená — právě kvůli němu se při stahování sekají hovory a hry. Známka A a lepší znamená, že připojení zůstává svižné; C a horší je znát. Zlepšíte ho zapnutím chytré správy front (SQM/QoS s fq_codel nebo CAKE) na routeru a nastavením šířky pásma na cca 95 %% naměřené rychlosti.</string>
 </resources>

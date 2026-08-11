@@ -16,9 +16,10 @@ object DiagnosticReport {
         serverCount: Int
     ): String = buildString {
         appendLine("LibreSpeed diagnostic report")
-        appendLine("Application: ${ClientInfo.client}")
+        appendLine("Application: ${ClientInfo.client} (${org.librespeed.speedtest.BuildConfig.BUILD_TYPE})")
         appendLine("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
         appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("Locale: ${Locale.getDefault()}")
         appendLine("Network: ${NetworkInfo.describe(context) ?: "unknown"}")
         NetworkInfo.detail(context)?.let { appendLine("Mobile network: $it") }
         appendLine("Test mode: $testMode")

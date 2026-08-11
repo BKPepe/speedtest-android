@@ -1,5 +1,9 @@
 package org.librespeed.speedtest.ui.speedtest
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -37,9 +41,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -48,14 +61,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.librespeed.speedtest.R
+import org.librespeed.speedtest.ui.currentLocale
+import org.librespeed.speedtest.data.AppPreferences
+import org.librespeed.speedtest.data.NetworkInfo
+import org.librespeed.speedtest.ui.HingeBounds
 import org.librespeed.speedtest.ui.components.SpeedGauge
 import org.librespeed.speedtest.ui.components.Sparkline
-import org.librespeed.speedtest.ui.theme.Purple
-import org.librespeed.speedtest.ui.theme.Teal
+import org.librespeed.speedtest.ui.theme.LocalSpeedAccents
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun SpeedtestScreen(
@@ -63,7 +84,7 @@ fun SpeedtestScreen(
     onServersClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onResult: (Long) -> Unit,
-    tabletop: Boolean = false
+    hinge: HingeBounds? = null
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resultId by viewModel.lastResultId.collectAsStateWithLifecycle()
@@ -120,18 +141,26 @@ fun SpeedtestScreen(
             }
         )
 
-        if (tabletop) {
-            //half-open fold: gauge on the upper display half, controls on the lower one
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                GaugeSection(state, unitLabel, display = { display(it) })
-            }
-            Column(
+        if (hinge != null) {
+            //half-open fold: gauge above the crease, controls below it, nothing on the hinge
+            HingeSplit(
+                hinge = hinge,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                MetricsSection(state, viewModel, unitLabel, display = { display(it) })
-            }
+                top = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        GaugeSection(state, unitLabel, display = { display(it) })
+                    }
+                },
+                bottom = {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        MetricsSection(state, viewModel, unitLabel, display = { display(it) })
+                    }
+                }
+            )
         } else {
             Spacer(Modifier.weight(1f))
             GaugeSection(state, unitLabel, display = { display(it) })
@@ -142,16 +171,45 @@ fun SpeedtestScreen(
     }
 }
 
+/** Splits the available space exactly at the fold crease, keeping a small gap around it. */
+@Composable
+private fun HingeSplit(
+    hinge: HingeBounds,
+    modifier: Modifier,
+    top: @Composable () -> Unit,
+    bottom: @Composable () -> Unit
+) {
+    var windowY by remember { mutableIntStateOf(0) }
+    val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
+    Layout(
+        contents = listOf(top, bottom),
+        modifier = modifier.onGloballyPositioned { windowY = it.positionInWindow().y.roundToInt() }
+    ) { (topMeasurables, bottomMeasurables), constraints ->
+        val height = constraints.maxHeight
+        val creaseTop = (hinge.top - windowY - gap).coerceIn(0, height)
+        val creaseBottom = (hinge.bottom - windowY + gap).coerceIn(creaseTop, height)
+        val topPlaceable = topMeasurables.first()
+            .measure(Constraints.fixed(constraints.maxWidth, creaseTop))
+        val bottomPlaceable = bottomMeasurables.first()
+            .measure(Constraints.fixed(constraints.maxWidth, height - creaseBottom))
+        layout(constraints.maxWidth, height) {
+            topPlaceable.place(0, 0)
+            bottomPlaceable.place(0, creaseBottom)
+        }
+    }
+}
+
 @Composable
 private fun GaugeSection(state: SpeedtestUiState, unitLabel: String, display: (Double) -> Double) {
     SpeedGauge(
         speed = state.currentSpeed,
-        modifier = Modifier.widthIn(max = 384.dp).fillMaxWidth()
+        modifier = Modifier.widthIn(max = 384.dp).fillMaxWidth(),
+        useMBytes = state.useMBytes
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = if (state.phase == Phase.IDLE || state.phase == Phase.ERROR) "—"
-                else String.format(Locale.US, "%.2f", display(state.currentSpeed)),
+                else String.format(currentLocale, "%.2f", display(state.currentSpeed)),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -161,7 +219,7 @@ private fun GaugeSection(state: SpeedtestUiState, unitLabel: String, display: (D
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(22.dp))
             PhaseLabel(state)
         }
     }
@@ -174,23 +232,24 @@ private fun MetricsSection(
     unitLabel: String,
     display: (Double) -> Double
 ) {
+        val accents = LocalSpeedAccents.current
         Row(modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.test_download),
-                icon = { Icon(Icons.Filled.ArrowDownward, null, tint = Teal, modifier = Modifier.size(16.dp)) },
+                icon = { Icon(Icons.Filled.ArrowDownward, null, tint = accents.download, modifier = Modifier.size(16.dp)) },
                 value = if (state.download < 0) state.download else display(state.download),
                 unit = unitLabel,
-                accent = Teal,
+                accent = accents.download,
                 samples = state.downloadSamples
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.test_upload),
-                icon = { Icon(Icons.Filled.ArrowUpward, null, tint = Purple, modifier = Modifier.size(16.dp)) },
+                icon = { Icon(Icons.Filled.ArrowUpward, null, tint = accents.upload, modifier = Modifier.size(16.dp)) },
                 value = if (state.upload < 0) state.upload else display(state.upload),
                 unit = unitLabel,
-                accent = Purple,
+                accent = accents.upload,
                 samples = state.uploadSamples
             )
         }
@@ -199,13 +258,36 @@ private fun MetricsSection(
         Row(modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SmallMetric(Modifier.weight(1f), stringResource(R.string.test_ping), state.ping, stringResource(R.string.unit_ms))
             SmallMetric(Modifier.weight(1f), stringResource(R.string.test_jitter), state.jitter, stringResource(R.string.unit_ms))
-            SmallMetric(Modifier.weight(1f), stringResource(R.string.test_loss), state.loss, "%")
+            SmallMetric(Modifier.weight(1f), stringResource(R.string.test_loss), state.loss, stringResource(R.string.unit_percent))
         }
 
         Spacer(Modifier.height(14.dp))
         val running = state.phase in setOf(Phase.PING, Phase.DOWNLOAD, Phase.UPLOAD)
+        val context = LocalContext.current
+        val prefs = remember { AppPreferences(context.applicationContext) }
+        val askedPhoneState by prefs.askedPhoneState.collectAsStateWithLifecycle(initialValue = true)
+        val scope = rememberCoroutineScope()
+        val phoneStateLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { viewModel.startOrStop() }
         OutlinedButton(
-            onClick = { viewModel.startOrStop() },
+            onClick = {
+                //ask so mobile tests can label 4G/5G; the test starts either way and we
+                //keep offering the dialog for as long as the system still shows it
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
+                    PackageManager.PERMISSION_GRANTED
+                val rationale = (context as? android.app.Activity)
+                    ?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.READ_PHONE_STATE) }
+                    ?: false
+                val needsPrompt = !running && !granted && NetworkInfo.isCellular(context) &&
+                    (!askedPhoneState || rationale)
+                if (needsPrompt) {
+                    scope.launch { prefs.markPhoneStateAsked() }
+                    phoneStateLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+                } else {
+                    viewModel.startOrStop()
+                }
+            },
             enabled = state.selectedServer != null || state.phase != Phase.IDLE,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
@@ -329,8 +411,8 @@ private fun PhaseLabel(state: SpeedtestUiState) {
     if (text.isNotEmpty()) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             when (state.phase) {
-                Phase.DOWNLOAD -> Icon(Icons.Filled.ArrowDownward, null, tint = Teal, modifier = Modifier.size(20.dp))
-                Phase.UPLOAD -> Icon(Icons.Filled.ArrowUpward, null, tint = Purple, modifier = Modifier.size(20.dp))
+                Phase.DOWNLOAD -> Icon(Icons.Filled.ArrowDownward, null, tint = LocalSpeedAccents.current.download, modifier = Modifier.size(20.dp))
+                Phase.UPLOAD -> Icon(Icons.Filled.ArrowUpward, null, tint = LocalSpeedAccents.current.upload, modifier = Modifier.size(20.dp))
                 else -> Icon(Icons.Filled.NetworkPing, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.height(4.dp))
@@ -369,7 +451,7 @@ private fun MetricCard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = if (value < 0) "—" else String.format(Locale.US, "%.2f", value),
+                text = if (value < 0) "—" else String.format(currentLocale, "%.2f", value),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -403,7 +485,7 @@ private fun SmallMetric(modifier: Modifier, title: String, value: Double, unit: 
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = if (value < 0) "—" else String.format(Locale.US, "%.1f", value),
+                    text = if (value < 0) "—" else String.format(currentLocale, "%.1f", value),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary

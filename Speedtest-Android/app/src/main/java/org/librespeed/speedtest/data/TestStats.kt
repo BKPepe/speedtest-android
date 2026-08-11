@@ -7,6 +7,7 @@ object TestStats {
 
     /** Bufferbloat grade from the latency increase under load, using the common Waveform buckets. */
     fun bufferbloatGrade(idleMs: Double, loadedMs: Double): String? {
+        if (!idleMs.isFinite() || !loadedMs.isFinite()) return null
         if (idleMs < 0 || loadedMs < 0) return null
         val delta = loadedMs - idleMs
         return when {
@@ -21,15 +22,16 @@ object TestStats {
 
     data class Stability(val min: Double, val max: Double, val average: Double, val variationPct: Int)
 
-    /** Spread of the sampled speeds; null when there are not enough samples to say anything. */
+    /** Spread of the sampled speeds; null when there are not enough usable samples to say anything. */
     fun stability(samples: List<Double>): Stability? {
-        if (samples.size < 5) return null
-        val average = samples.average()
+        val finite = samples.filter { it.isFinite() && it >= 0 }
+        if (finite.size < 5) return null
+        val average = finite.average()
         if (average <= 0) return null
-        val deviation = sqrt(samples.sumOf { (it - average) * (it - average) } / samples.size)
+        val deviation = sqrt(finite.sumOf { (it - average) * (it - average) } / finite.size)
         return Stability(
-            min = samples.min(),
-            max = samples.max(),
+            min = finite.min(),
+            max = finite.max(),
             average = average,
             variationPct = (deviation / average * 100).roundToInt()
         )

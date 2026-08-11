@@ -14,6 +14,7 @@ import androidx.window.layout.WindowInfoTracker
 import org.librespeed.speedtest.data.AppPreferences
 import org.librespeed.speedtest.data.ClientInfo
 import org.librespeed.speedtest.ui.App
+import org.librespeed.speedtest.ui.HingeBounds
 import org.librespeed.speedtest.ui.theme.LibreSpeedTheme
 import org.librespeed.speedtest.ui.theme.ThemeMode
 
@@ -30,10 +31,12 @@ class MainActivity : ComponentActivity() {
             val windowSizeClass = calculateWindowSizeClass(this)
             val layoutInfo by remember { WindowInfoTracker.getOrCreate(this).windowLayoutInfo(this) }
                 .collectAsStateWithLifecycle(initialValue = null)
-            //half-opened fold with a horizontal hinge = tabletop posture
-            val tabletop = layoutInfo?.displayFeatures
+            //half-opened fold with a horizontal hinge = tabletop posture; the hinge
+            //bounds (window coordinates) let the layout keep content out of the crease
+            val hinge = layoutInfo?.displayFeatures
                 ?.filterIsInstance<FoldingFeature>()
-                ?.any { it.state == FoldingFeature.State.HALF_OPENED && it.orientation == FoldingFeature.Orientation.HORIZONTAL } == true
+                ?.firstOrNull { it.state == FoldingFeature.State.HALF_OPENED && it.orientation == FoldingFeature.Orientation.HORIZONTAL }
+                ?.let { HingeBounds(it.bounds.top, it.bounds.bottom) }
             LibreSpeedTheme(
                 mode = when (themeMode) {
                     "light" -> ThemeMode.LIGHT
@@ -41,7 +44,7 @@ class MainActivity : ComponentActivity() {
                     else -> ThemeMode.SYSTEM
                 }
             ) {
-                App(windowWidth = windowSizeClass.widthSizeClass, tabletop = tabletop)
+                App(windowWidth = windowSizeClass.widthSizeClass, hinge = hinge)
             }
         }
     }

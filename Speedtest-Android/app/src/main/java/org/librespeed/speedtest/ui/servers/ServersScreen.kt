@@ -38,7 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,7 +62,7 @@ import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.key
 import org.librespeed.speedtest.ui.speedtest.SpeedtestViewModel
 import org.librespeed.speedtest.ui.theme.DangerRed
-import org.librespeed.speedtest.ui.theme.Teal
+import org.librespeed.speedtest.ui.theme.LocalSpeedAccents
 
 private val Amber = Color(0xFFF7941D)
 
@@ -169,7 +169,7 @@ fun ServersScreen(viewModel: SpeedtestViewModel, onCompareClick: () -> Unit) {
                 Text(stringResource(R.string.servers_show_distances))
             }
         }
-        TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
+        SecondaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
             Tab(selected = tab == 0, onClick = { tabOverride = 0 }, text = { Text(stringResource(R.string.servers_favorites)) })
             Tab(selected = tab == 1, onClick = { tabOverride = 1 }, text = { Text(stringResource(R.string.servers_all)) })
         }
@@ -232,8 +232,9 @@ fun ServersScreen(viewModel: SpeedtestViewModel, onCompareClick: () -> Unit) {
     }
 }
 
+@Composable
 private fun latencyColor(ping: Float): Color = when {
-    ping < 50 -> Teal
+    ping < 50 -> LocalSpeedAccents.current.download
     ping < 150 -> Amber
     else -> DangerRed
 }

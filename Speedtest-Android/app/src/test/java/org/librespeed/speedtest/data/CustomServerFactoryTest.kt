@@ -36,6 +36,21 @@ class CustomServerFactoryTest {
     }
 
     @Test
+    fun `uppercase schemes keep their protocol`() {
+        assertEquals("https://example.com", CustomServerFactory.create("Test", "HTTPS://example.com").server)
+        assertEquals("http://example.com:8080", CustomServerFactory.create("Test", "HTTP://example.com:8080").server)
+    }
+
+    @Test
+    fun `non-http schemes are rejected instead of downgraded`() {
+        listOf("ftp://example.com", "file:///etc/passwd", "ws://example.com").forEach { url ->
+            assertThrows(url, IllegalArgumentException::class.java) {
+                CustomServerFactory.create("Test", url)
+            }
+        }
+    }
+
+    @Test
     fun `blank name is rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             CustomServerFactory.create("   ", "https://example.com")
@@ -47,6 +62,22 @@ class CustomServerFactoryTest {
         assertThrows(IllegalArgumentException::class.java) {
             CustomServerFactory.create("Test", "not a url")
         }
+    }
+
+    @Test
+    fun `urls without a usable host are rejected`() {
+        listOf("https://", "http:///path", "https://:8080", "%%%").forEach { url ->
+            assertThrows(url, IllegalArgumentException::class.java) {
+                CustomServerFactory.create("Test", url)
+            }
+        }
+    }
+
+    @Test
+    fun `whitespace and trailing slashes are trimmed`() {
+        val testPoint = CustomServerFactory.create("Test", "  https://example.com/backend///  ")
+        assertEquals("https://example.com", testPoint.server)
+        assertEquals("backend/garbage.php", testPoint.dlURL)
     }
 
 }

@@ -28,7 +28,10 @@ public class Connection {
     private int mode=MODE_NOT_SET;
     private static final int MODE_NOT_SET=0, MODE_HTTP=1, MODE_HTTPS=2;
 
-    private static String userAgent="LibreSpeed-Android (SDK "+Build.VERSION.SDK_INT+"; "+Build.PRODUCT+"; Android "+Build.VERSION.RELEASE+")";
+    // Replaced at startup with ClientInfo.userAgent, which can name the app
+    // version; this default is what the engine sends if that never runs.
+    private static String userAgent="librespeed-android (android "+Build.VERSION.RELEASE+"; "
+            +(Build.SUPPORTED_ABIS!=null&&Build.SUPPORTED_ABIS.length>0?Build.SUPPORTED_ABIS[0]:"unknown")+"; "+Build.PRODUCT+")";
 
     public static void setUserAgent(String ua){
         userAgent=ua;

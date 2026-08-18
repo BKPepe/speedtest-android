@@ -15,7 +15,7 @@ class ConnectionTest {
 
     @Test
     fun userAgentHeaderIsSingleLine() {
-        Connection.setUserAgent("LibreSpeed-Android/2.0.0 (SDK 36; Android 16)")
+        Connection.setUserAgent("librespeed-android/2.0.0 (android 16; arm64-v8a; raven)")
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(200))
         server.start()
@@ -24,7 +24,7 @@ class ConnectionTest {
             connection.GET("/empty", true)
             val recorded = server.takeRequest(10, TimeUnit.SECONDS)!!
             val userAgent = recorded.getHeader("User-Agent")
-            assertEquals("LibreSpeed-Android/2.0.0 (SDK 36; Android 16)", userAgent)
+            assertEquals("librespeed-android/2.0.0 (android 16; arm64-v8a; raven)", userAgent)
             assertFalse("User-Agent must not contain line breaks", userAgent!!.contains("\r") || userAgent.contains("\n"))
             connection.close()
         } finally {

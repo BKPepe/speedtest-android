@@ -13,15 +13,36 @@ val Teal = Color(0xFF2DD4BF)
 val TealDeep = Color(0xFF14B8A6)
 val Purple = Color(0xFFA78BFA)
 
-/**
- * Download/upload accents resolved per theme. The bright dark-mode pair sits
- * below the 3:1 large-text contrast minimum on the light surfaces (and so does
- * TealDeep), so light mode gets darker shades of the same hues.
- */
-data class SpeedAccents(val download: Color, val upload: Color)
+/** The darker teal light mode needs; also its [primary]. */
+val TealDark = Color(0xFF0F766E)
 
-private val DarkAccents = SpeedAccents(download = Teal, upload = Purple)
-private val LightAccents = SpeedAccents(download = Color(0xFF0F766E), upload = Color(0xFF7C5CD6))
+/**
+ * Hue-carrying accents resolved per theme: the two transfer directions and the
+ * latency scale. The bright dark-mode tones sit below the 3:1 contrast minimum
+ * on the light surfaces (TealDeep 2.49:1, Amber 2.28:1), so light mode gets
+ * darker shades of the same hues rather than a different palette.
+ */
+data class SpeedAccents(
+    val download: Color,
+    val upload: Color,
+    val warn: Color,
+    val bad: Color
+)
+
+private val DarkAccents = SpeedAccents(
+    download = Teal,
+    upload = Purple,
+    warn = Color(0xFFF7941D),
+    //the same value as DangerRed, spelled out because that one is declared
+    //further down the file and top-level initialisation runs in order
+    bad = Color(0xFFEF6461)
+)
+private val LightAccents = SpeedAccents(
+    download = TealDark,
+    upload = Color(0xFF7C5CD6),
+    warn = Color(0xFFB45309),
+    bad = Color(0xFFC0342F)
+)
 
 val LocalSpeedAccents = staticCompositionLocalOf { DarkAccents }
 val NightBackground = Color(0xFF0C111C)
@@ -53,7 +74,9 @@ private val DarkColors = darkColorScheme(
 )
 
 private val LightColors = lightColorScheme(
-    primary = TealDeep,
+    //TealDeep reads at 2.49:1 on these surfaces, both as text and behind
+    //onPrimary; the darker teal clears 4.5:1 in either direction
+    primary = TealDark,
     onPrimary = Color.White,
     primaryContainer = Color(0xFFC8F5EE),
     onPrimaryContainer = Color(0xFF00332E),

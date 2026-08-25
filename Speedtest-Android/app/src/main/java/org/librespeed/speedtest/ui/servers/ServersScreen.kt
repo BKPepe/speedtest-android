@@ -61,10 +61,7 @@ import org.librespeed.speedtest.R
 import org.librespeed.speedtest.data.GeoDistance
 import org.librespeed.speedtest.data.key
 import org.librespeed.speedtest.ui.speedtest.SpeedtestViewModel
-import org.librespeed.speedtest.ui.theme.DangerRed
 import org.librespeed.speedtest.ui.theme.LocalSpeedAccents
-
-private val Amber = Color(0xFFF7941D)
 
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
@@ -233,10 +230,12 @@ fun ServersScreen(viewModel: SpeedtestViewModel, onCompareClick: () -> Unit) {
 }
 
 @Composable
-private fun latencyColor(ping: Float): Color = when {
-    ping < 50 -> LocalSpeedAccents.current.download
-    ping < 150 -> Amber
-    else -> DangerRed
+private fun latencyColor(ping: Float): Color = LocalSpeedAccents.current.let {
+    when {
+        ping < 50 -> it.download
+        ping < 150 -> it.warn
+        else -> it.bad
+    }
 }
 
 @Composable
